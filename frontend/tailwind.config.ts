@@ -1,5 +1,6 @@
 import type { Config } from "tailwindcss";
 import typography from "@tailwindcss/typography";
+import animate from "tailwindcss-animate"; // Fix: adds animate-in, fade-in, slide-in-from-* classes
 
 const config: Config = {
   content: [
@@ -10,16 +11,30 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Defining 'brand' to match the Button variants
         brand: {
           50: '#eff6ff',
-          600: '#2563eb', // This is the blue color for the primary button
+          500: '#3b82f6', // Fix: was missing — used in focus:ring-brand-500
+          600: '#2563eb',
           700: '#1d4ed8',
         },
+        slate: {
+          // Fix: bg-slate-25 doesn't exist in Tailwind — adding it here
+          25: '#f8fafc',
+        },
+      },
+      keyframes: {
+        // Fix: animate-fade-in-up used in SummaryDisplay but not defined
+        'fade-in-up': {
+          '0%': { opacity: '0', transform: 'translateY(16px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'fade-in-up': 'fade-in-up 0.4s ease-out forwards',
       },
     },
   },
-  plugins: [typography],
+  plugins: [typography, animate],
 };
 
 export default config;

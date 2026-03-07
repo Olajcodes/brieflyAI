@@ -14,13 +14,12 @@ PRESETS = {
     "long": (220, 320)
 }
 
-async def generate_grounded_summary(text: str, preset: str, format: str, target: int = None):
+async def generate_grounded_summary(text: str, preset: str, format: str, target: int = None, language: str = "auto"):
     min_w, max_w = PRESETS[preset]
     if target:
         max_w = max(40, min(450, target))
         min_w = int(max_w * 0.7)
 
-    # System prompt enforces grounding and prohibits hallucinations
     system_message = """You are a grounded summarization assistant. 
         1. Use ONLY facts from the provided text. 
         2. Do not include external knowledge or hallucinations. 
@@ -28,15 +27,22 @@ async def generate_grounded_summary(text: str, preset: str, format: str, target:
         4. You must output valid JSON with exactly these keys: 
             'paragraph', 'bullets', 'takeaways'.
         5. If the text is insufficient to reach the length, be concise rather than inventing details."""
-            
+
+    # Language instruction
+    lang_instruction = (
+        "Detect the language of the source text and respond in that same language."
+        if language == "auto"
+        else f"Respond in this language: {language}."
+    )
 
     # Construct the user prompt with specific constraints
     user_prompt = (
-        f"SOURCE TEXT: {text[:15000]}\n\n" # Context window safety
+        f"SOURCE TEXT: {text[:150000]}\n\n"  # Fixed: was 15000 chars (~1.5k words), now aligns with 25k word limit
         f"INSTRUCTIONS:\n"
         f"- Output Format: {format}\n"
         f"- Target Length: {min_w}-{max_w} words\n"
         f"- Key Takeaways: Provide 3 to 7 bullet points\n"
+        f"- Language: {lang_instruction}\n"
         f"- Grounding: Every statement must be supported by the source text."
     )
 
