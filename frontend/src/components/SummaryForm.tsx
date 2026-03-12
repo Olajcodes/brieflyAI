@@ -21,6 +21,25 @@ const TAB_LABELS: Record<Tab, string> = {
   audio: '🎙 Audio',
 };
 
+const LANGUAGES = [
+  { value: 'auto', label: 'Auto-detect' },
+  { value: 'en',   label: 'English' },
+  { value: 'fr',   label: 'French' },
+  { value: 'es',   label: 'Spanish' },
+  { value: 'de',   label: 'German' },
+  { value: 'pt',   label: 'Portuguese' },
+  { value: 'it',   label: 'Italian' },
+  { value: 'nl',   label: 'Dutch' },
+  { value: 'ar',   label: 'Arabic' },
+  { value: 'zh',   label: 'Chinese' },
+  { value: 'ja',   label: 'Japanese' },
+  { value: 'ko',   label: 'Korean' },
+  { value: 'hi',   label: 'Hindi' },
+  { value: 'yo',   label: 'Yoruba' },
+  { value: 'ha',   label: 'Hausa' },
+  { value: 'ig',   label: 'Igbo' },
+];
+
 export default function SummaryForm({ loading, onSummarize }: SummaryFormProps) {
   // ── Shared state ──
   const [tab, setTab] = useState<Tab>('text');
@@ -29,6 +48,7 @@ export default function SummaryForm({ loading, onSummarize }: SummaryFormProps) 
   const [file, setFile] = useState<File | null>(null);
   const [preset, setPreset] = useState<LengthPreset>('medium');
   const [format, setFormat] = useState<OutputFormat>('both');
+  const [language, setLanguage] = useState('auto');
 
   // ── Audio state ──
   const [audioFile, setAudioFile] = useState<File | null>(null);
@@ -56,6 +76,14 @@ export default function SummaryForm({ loading, onSummarize }: SummaryFormProps) 
     }
   }, [tab]);
 
+  // Fix: reset audioStage back to 'review' once the parent signals loading is done.
+  // Without this, the button stays stuck on "Summarizing..." even after results appear.
+  useEffect(() => {
+    if (!loading && audioStage === 'summarizing') {
+      setAudioStage('review');
+    }
+  }, [loading]);
+
   // ── Recording helpers ──
   const startRecording = async () => {
     setAudioError(null);
@@ -72,12 +100,12 @@ export default function SummaryForm({ loading, onSummarize }: SummaryFormProps) 
       recorder.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: mimeType });
         const ext = mimeType.includes('webm') ? 'webm' : 'mp4';
-        const file = new File([blob], `recording.${ext}`, { type: mimeType });
-        setAudioFile(file);
+        const recorded = new File([blob], `recording.${ext}`, { type: mimeType });
+        setAudioFile(recorded);
         stream.getTracks().forEach(t => t.stop());
       };
 
-      recorder.start(250); // collect in 250ms chunks
+      recorder.start(250);
       mediaRecorderRef.current = recorder;
       setIsRecording(true);
       setRecordingSeconds(0);
@@ -98,14 +126,14 @@ export default function SummaryForm({ loading, onSummarize }: SummaryFormProps) 
     }
   };
 
-  const formatDuration = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const formatDuration = (s: number) =>
+    `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
   // ── Stage 1: Transcribe ──
   const handleTranscribe = async () => {
     if (!audioFile) return;
     setAudioError(null);
     setAudioStage('transcribing');
-
     try {
       const fd = new FormData();
       fd.append('file', audioFile);
@@ -119,20 +147,19 @@ export default function SummaryForm({ loading, onSummarize }: SummaryFormProps) 
     }
   };
 
-  // ── Stage 2: Summarize (uses /v1/summarize with edited transcript) ──
+  // ── Stage 2: Summarize transcript (via existing /v1/summarize) ──
   const handleSummarizeTranscript = () => {
     setAudioStage('summarizing');
-    // Reuse the existing text summarize pipeline with the (possibly edited) transcript
     onSummarize({
       type: 'text',
       text: editedTranscript,
       preset,
       format,
-      _isAudio: true, // flag for parent to know source type
+      language,
+      _isAudio: true,
     });
   };
 
-  // ── Re-summarize after editing ──
   const handleResummarize = () => {
     setTranscriptOpen(false);
     handleSummarizeTranscript();
@@ -141,9 +168,9 @@ export default function SummaryForm({ loading, onSummarize }: SummaryFormProps) 
   // ── Standard form submit ──
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (tab === 'text') onSummarize({ type: 'text', text, preset, format });
-    else if (tab === 'url') onSummarize({ type: 'url', url, preset, format });
-    else if (tab === 'file') onSummarize({ type: 'file', file, preset, format });
+    if (tab === 'text') onSummarize({ type: 'text', text, preset, format, language });
+    else if (tab === 'url') onSummarize({ type: 'url', url, preset, format, language });
+    else if (tab === 'file') onSummarize({ type: 'file', file, preset, format, language });
   };
 
   const isStandardInvalid =
@@ -210,7 +237,10 @@ export default function SummaryForm({ loading, onSummarize }: SummaryFormProps) 
             )}
           </div>
 
-          <SettingsGrid preset={preset} format={format} setPreset={setPreset} setFormat={setFormat} />
+          <SettingsGrid
+            preset={preset} format={format} language={language}
+            setPreset={setPreset} setFormat={setFormat} setLanguage={setLanguage}
+          />
 
           <Button type="submit" isLoading={loading} disabled={isStandardInvalid} className="w-full py-4 text-base">
             Summarize Content
@@ -244,7 +274,9 @@ export default function SummaryForm({ loading, onSummarize }: SummaryFormProps) 
                 <span className={cn('font-bold text-sm', audioFile ? 'text-blue-600' : 'text-slate-500')}>
                   {audioFile ? audioFile.name : 'Upload audio file'}
                 </span>
-                <span className="text-xs text-slate-400 mt-0.5">MP3, WAV, M4A, WEBM, OGG, FLAC · max 25MB</span>
+                <span className="text-xs text-slate-400 mt-0.5">
+                  MP3, WAV, M4A, WEBM, OGG, FLAC · max 25MB
+                </span>
               </label>
 
               {/* Divider */}
@@ -269,7 +301,9 @@ export default function SummaryForm({ loading, onSummarize }: SummaryFormProps) 
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-xl">
                       <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse inline-block" />
-                      <span className="font-mono text-sm text-red-700 font-bold">{formatDuration(recordingSeconds)}</span>
+                      <span className="font-mono text-sm text-red-700 font-bold">
+                        {formatDuration(recordingSeconds)}
+                      </span>
                     </div>
                     <button
                       type="button"
@@ -282,12 +316,14 @@ export default function SummaryForm({ loading, onSummarize }: SummaryFormProps) 
                 )}
               </div>
 
-              {/* Error */}
               {audioError && (
                 <p className="text-xs text-red-600 text-center font-medium">{audioError}</p>
               )}
 
-              <SettingsGrid preset={preset} format={format} setPreset={setPreset} setFormat={setFormat} />
+              <SettingsGrid
+                preset={preset} format={format} language={language}
+                setPreset={setPreset} setFormat={setFormat} setLanguage={setLanguage}
+              />
 
               <Button
                 type="button"
@@ -301,11 +337,11 @@ export default function SummaryForm({ loading, onSummarize }: SummaryFormProps) 
             </div>
           )}
 
-          {/* Stage: review transcript + auto-summarize */}
+          {/* Stage: review + summarize */}
           {(audioStage === 'review' || audioStage === 'summarizing') && transcription && (
             <div className="space-y-4">
 
-              {/* Audio metadata pill */}
+              {/* Audio metadata */}
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">
                   ✓ Transcribed
@@ -344,13 +380,12 @@ export default function SummaryForm({ loading, onSummarize }: SummaryFormProps) 
                       className="w-full h-48 p-3 text-sm text-slate-700 border border-slate-200 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 outline-none leading-relaxed"
                       value={editedTranscript}
                       onChange={(e) => setEditedTranscript(e.target.value)}
-                      placeholder="Transcript will appear here..."
                     />
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-slate-400">
                         {editedTranscript !== transcription.transcript
                           ? '✏️ Edited — re-summarize to apply changes'
-                          : 'Edit the transcript above to improve summarization accuracy'}
+                          : 'Edit transcript above to improve accuracy'}
                       </span>
                       {editedTranscript !== transcription.transcript && (
                         <button
@@ -366,7 +401,10 @@ export default function SummaryForm({ loading, onSummarize }: SummaryFormProps) 
                 )}
               </div>
 
-              <SettingsGrid preset={preset} format={format} setPreset={setPreset} setFormat={setFormat} />
+              <SettingsGrid
+                preset={preset} format={format} language={language}
+                setPreset={setPreset} setFormat={setFormat} setLanguage={setLanguage}
+              />
 
               <Button
                 type="button"
@@ -386,17 +424,19 @@ export default function SummaryForm({ loading, onSummarize }: SummaryFormProps) 
   );
 }
 
-// ── Shared settings grid component ──
-function SettingsGrid({
-  preset, format, setPreset, setFormat
-}: {
+// ── Shared settings grid ─────────────────────────────────────────
+interface SettingsGridProps {
   preset: LengthPreset;
   format: OutputFormat;
+  language: string;
   setPreset: (v: LengthPreset) => void;
   setFormat: (v: OutputFormat) => void;
-}) {
+  setLanguage: (v: string) => void;
+}
+
+function SettingsGrid({ preset, format, language, setPreset, setFormat, setLanguage }: SettingsGridProps) {
   return (
-    <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-5">
+    <div className="grid grid-cols-3 gap-3 border-t border-slate-100 pt-5">
       <div className="space-y-1.5">
         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Length</label>
         <select
@@ -409,6 +449,7 @@ function SettingsGrid({
           <option value="long">Long</option>
         </select>
       </div>
+
       <div className="space-y-1.5">
         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Format</label>
         <select
@@ -419,6 +460,21 @@ function SettingsGrid({
           <option value="paragraph">Paragraph</option>
           <option value="bullet_points">Bullets</option>
           <option value="both">Both</option>
+        </select>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+          Output Language
+        </label>
+        <select
+          value={language}
+          onChange={(e) => setLanguage(e.target.value)}
+          className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-white outline-none"
+        >
+          {LANGUAGES.map((l) => (
+            <option key={l.value} value={l.value}>{l.label}</option>
+          ))}
         </select>
       </div>
     </div>

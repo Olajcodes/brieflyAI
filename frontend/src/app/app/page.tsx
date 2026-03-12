@@ -20,12 +20,14 @@ export default function AppPage() {
 
     try {
       let res: SummaryResponse;
+
       if (formData.type === 'text') {
         res = await api.summarizeText({
           text: formData.text,
           length_preset: formData.preset,
           output_format: formData.format,
           target_word_count: formData.target_word_count,
+          language: formData.language || 'auto',
         });
       } else if (formData.type === 'url') {
         res = await api.summarizeUrl({
@@ -33,17 +35,20 @@ export default function AppPage() {
           length_preset: formData.preset,
           output_format: formData.format,
           target_word_count: formData.target_word_count,
+          language: formData.language || 'auto',
         });
       } else {
         const fd = new FormData();
         fd.append('file', formData.file);
         fd.append('length_preset', formData.preset);
         fd.append('output_format', formData.format);
+        fd.append('language', formData.language || 'auto');
         if (formData.target_word_count) {
           fd.append('target_word_count', formData.target_word_count.toString());
         }
         res = await api.summarizeFile(fd);
       }
+
       setResult(res);
     } catch (err: any) {
       setError(err.message || 'Summarization failed. Check your backend connection and OpenAI API key.');
@@ -81,18 +86,35 @@ Time Saved: ${result.metrics.estimated_minutes_saved} minutes
   return (
     <div className="min-h-screen bg-[#f7f5f0]" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
 
-      {/* Top bar */}
+      {/* ── Header ── */}
       <header className="sticky top-0 z-50 flex items-center justify-between px-6 h-14 border-b border-[#e0ddd6] bg-[#f7f5f0]/90 backdrop-blur-md">
-        <Link
-          href="/"
-          className="font-serif italic text-xl tracking-tight text-[#0d0d0d] hover:opacity-70 transition-opacity"
-          style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}
-        >
-          Briefly.
-        </Link>
+
+        {/* Left: back arrow + logo */}
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#e0ddd6] bg-white hover:bg-[#f0ede8] transition-colors text-[#3a3a3a]"
+            title="Back to home"
+          >
+            {/* Left arrow SVG */}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 5l-7 7 7 7" />
+            </svg>
+          </Link>
+
+          <Link
+            href="/"
+            className="font-serif italic text-xl tracking-tight text-[#0d0d0d] hover:opacity-70 transition-opacity"
+            style={{ fontFamily: "'DM Serif Display', Georgia, serif" }}
+          >
+            Briefly.
+          </Link>
+        </div>
+
+        {/* Right: model indicator */}
         <div className="flex items-center gap-2 text-xs text-[#888] font-mono uppercase tracking-widest">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
-          GPT-4o
+          GPT-4o · Whisper
         </div>
       </header>
 
@@ -120,9 +142,7 @@ Time Saved: ${result.metrics.estimated_minutes_saved} minutes
         {error && (
           <div className="flex gap-3 items-start p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl text-sm animate-in fade-in">
             <span className="text-base leading-none mt-0.5">⚠️</span>
-            <div>
-              <span className="font-semibold">Error: </span>{error}
-            </div>
+            <div><span className="font-semibold">Error: </span>{error}</div>
           </div>
         )}
 
@@ -140,12 +160,12 @@ Time Saved: ${result.metrics.estimated_minutes_saved} minutes
             <MetricsDisplay metrics={result.metrics} />
             <SummaryDisplay data={result} onDownload={handleDownload} />
 
-            {/* Model info footer */}
             <p className="text-center text-[10px] font-mono uppercase tracking-widest text-[#bbb]">
-              Summarized by {result.model_info.provider} · {result.model_info.model} · ID: {result.request_id.slice(0, 8)}
+              {result.model_info.provider} · {result.model_info.model} · ID: {result.request_id.slice(0, 8)}
             </p>
           </div>
         )}
+
       </main>
     </div>
   );

@@ -126,7 +126,7 @@ export default function LandingPage() {
 
         /* INPUTS */
         .l-inputs { background: var(--paper-white); }
-        .l-inputs-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+        .l-inputs-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
         .l-input-card { border: 1px solid var(--rule); border-radius: 16px; padding: 2rem; background: var(--paper); transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; }
         .l-input-card:hover { transform: translateY(-5px); box-shadow: 0 16px 40px rgba(0,0,0,0.08); border-color: var(--accent); }
         .l-input-icon { font-size: 2rem; margin-bottom: 1rem; }
@@ -210,7 +210,7 @@ export default function LandingPage() {
             </div>
             <div className="l-stat-row">
               <div><div className="l-stat-val">~80%</div><div className="l-stat-key">Compression</div></div>
-              <div><div className="l-stat-val">3</div><div className="l-stat-key">Input types</div></div>
+              <div><div className="l-stat-val">4</div><div className="l-stat-key">Input types</div></div>
               <div><div className="l-stat-val">0</div><div className="l-stat-key">Hallucinations</div></div>
             </div>
           </div>
@@ -245,8 +245,8 @@ export default function LandingPage() {
         {/* MARQUEE */}
         <div className="l-marquee">
           <div className="l-marquee-track">
-            {['Text Summarization','URL Extraction','PDF Support','DOCX Support','SSRF Protection','Grounded Output','Key Takeaways','Compression Metrics','GPT-4o Powered','Zero Hallucinations',
-              'Text Summarization','URL Extraction','PDF Support','DOCX Support','SSRF Protection','Grounded Output','Key Takeaways','Compression Metrics','GPT-4o Powered','Zero Hallucinations'
+            {['Text Summarization','URL Extraction','PDF Support','DOCX Support','Audio Transcription','Whisper STT','Mic Recording','SSRF Protection','Grounded Output','Key Takeaways','Compression Metrics','GPT-4o Powered','Zero Hallucinations','16 Languages',
+              'Text Summarization','URL Extraction','PDF Support','DOCX Support','Audio Transcription','Whisper STT','Mic Recording','SSRF Protection','Grounded Output','Key Takeaways','Compression Metrics','GPT-4o Powered','Zero Hallucinations','16 Languages'
             ].map((item, i) => <span key={i} className="l-marquee-item">{item}</span>)}
           </div>
         </div>
@@ -258,9 +258,9 @@ export default function LandingPage() {
           <p className="l-section-sub">No setup, no fluff. Drop in your content and Briefly does the rest.</p>
           <div className="l-steps-grid">
             {[
-              { n: '01', icon: '📥', title: 'Input your content', desc: 'Paste raw text, drop in a URL, or upload a file — PDF, DOCX, or TXT. Briefly handles extraction automatically.' },
+              { n: '01', icon: '📥', title: 'Input your content', desc: 'Paste raw text, drop in a URL, upload a file (PDF, DOCX, TXT), or submit an audio recording. Briefly handles extraction and transcription automatically.' },
               { n: '02', icon: '⚙️', title: 'Configure your output', desc: 'Choose your length preset (short, medium, or long) and output format — paragraph, bullet points, or both.' },
-              { n: '03', icon: '✅', title: 'Get your summary', desc: 'Receive a grounded summary with key takeaways, compression metrics, and estimated reading time saved.' },
+              { n: '03', icon: '✅', title: 'Get your summary', desc: 'Receive a grounded summary with key takeaways and compression metrics. Audio inputs also show a reviewable, editable transcript alongside the summary.' },
             ].map((s) => (
               <div key={s.n} className="l-step">
                 <div className="l-step-num">{s.n}</div>
@@ -281,8 +281,10 @@ export default function LandingPage() {
             {[
               { icon: '🔒', title: 'Zero hallucinations', desc: 'The model is strictly instructed to use only facts from your source text — no external knowledge, no invented details, ever.' },
               { icon: '🌐', title: 'Safe URL fetching', desc: 'Built-in SSRF protection blocks requests to private IP ranges. Content is fetched securely with clean extraction via Readability.' },
+              { icon: '🎙️', title: 'Audio transcription', desc: 'Powered by OpenAI Whisper — upload MP3, WAV, M4A, WEBM and more, or record directly from your microphone. Transcripts are shown for review before summarizing.' },
+              { icon: '✏️', title: 'Editable transcripts', desc: 'After transcription, review and edit the transcript before summarizing. Fix mishears, remove filler, or trim sections — then re-summarize with one click.' },
               { icon: '📊', title: 'Compression metrics', desc: 'Every summary includes word counts, compression ratio, and estimated reading time saved — full transparency on what was distilled.' },
-              { icon: '🌍', title: 'Auto language detection', desc: 'Briefly detects the source language and responds in kind — or specify a target language explicitly for each request.' },
+              { icon: '🌍', title: '16 output languages', desc: 'Summarize into any of 16 supported languages including English, French, Arabic, Chinese, Yoruba, Hausa, and Igbo — regardless of the source language.' },
               { icon: '📄', title: 'Multi-format file support', desc: 'Upload PDFs (with scanned-doc detection), DOCX, or plain text files up to 15MB and 25,000 words. Smart parsing handles each.' },
               { icon: '🎯', title: 'Precision length control', desc: 'Use presets or set an exact target word count. The model is constrained to hit your range — no padding, no cutting short.' },
             ].map((f) => (
@@ -305,6 +307,7 @@ export default function LandingPage() {
               { icon: '✏️', title: 'Plain Text', desc: 'Paste any text directly — article excerpts, meeting notes, research summaries, or anything else.', chips: ['up to 25k words', 'any language'] },
               { icon: '🔗', title: 'URL', desc: 'Drop in any public URL — news articles, blog posts, reports. Briefly fetches and extracts readable content automatically.', chips: ['http / https', 'SSRF-safe', 'auto-extract'] },
               { icon: '📎', title: 'File Upload', desc: 'Upload a document and let Briefly extract and summarize the content. Supports PDFs, Word docs, and plain text files.', chips: ['.pdf', '.docx', '.txt', 'max 15MB'] },
+              { icon: '🎙️', title: 'Audio', desc: 'Upload a recording or speak directly into your mic. Whisper transcribes it first — you review, edit if needed, then summarize.', chips: ['.mp3', '.wav', '.m4a', '.webm', 'live mic', 'max 25MB'] },
             ].map((c) => (
               <div key={c.title} className="l-input-card">
                 <div className="l-input-icon">{c.icon}</div>
@@ -359,7 +362,7 @@ export default function LandingPage() {
             <a href="#">GitHub</a>
             <a href="#">Privacy</a>
           </div>
-          <span>Built with FastAPI + GPT-4o</span>
+          <span>Built with FastAPI · GPT-4o · Whisper</span>
         </footer>
 
       </div>
