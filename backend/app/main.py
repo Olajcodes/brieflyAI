@@ -86,7 +86,8 @@ async def summarize_file(
     file: UploadFile = File(...),
     length_preset: Literal["short", "medium", "long"] = Form(...),
     output_format: Literal["paragraph", "bullet_points", "both"] = Form(...),
-    target_word_count: Optional[int] = Form(None)
+    target_word_count: Optional[int] = Form(None),
+    language: str = Form("auto"),  # ← added
 ):
     if file.content_type not in [
         "application/pdf",
@@ -105,7 +106,9 @@ async def summarize_file(
     if len(extracted_text.split()) > MAX_WORD_LIMIT:
         raise HTTPException(status_code=413, detail=f"Extracted text exceeds {MAX_WORD_LIMIT} word limit.")
 
-    res = await generate_grounded_summary(extracted_text, length_preset, output_format, target_word_count)
+    res = await generate_grounded_summary(
+        extracted_text, length_preset, output_format, target_word_count, language  # ← passed
+    )
     metrics = calculate_metrics(extracted_text, res['paragraph'], res['bullets'])
     return {
         "request_id": req_id,
@@ -128,17 +131,11 @@ async def summarize_file(
 
 @app.post("/v1/transcribe-audio", response_model=TranscribeResponse)
 async def transcribe_audio_endpoint(file: UploadFile = File(...)):
-    """
-    Stage 1 — Transcription only.
-    Frontend calls this first, shows the transcript to the user,
-    then calls /v1/summarize with the (possibly edited) transcript text.
-    """
+    """Stage 1 — transcription only, no summarization."""
     content = await file.read()
     validate_audio(file.content_type, len(content))
-
     req_id = get_request_id()
     result = await transcribe_audio(content, file.content_type, file.filename)
-
     return {
         "request_id": req_id,
         "transcript": result["transcript"],
@@ -154,19 +151,13 @@ async def summarize_audio_endpoint(
     length_preset: Literal["short", "medium", "long"] = Form(...),
     output_format: Literal["paragraph", "bullet_points", "both"] = Form(...),
     target_word_count: Optional[int] = Form(None),
+    language: str = Form("auto"),  # ← added
 ):
-    """
-    Combined endpoint — transcribe + summarize in one call.
-    Used when the user hasn't edited their transcript.
-    Always returns the transcript alongside the summary so the
-    frontend can populate the review panel.
-    """
+    """Combined: transcribe + summarize. Always returns transcript for frontend review panel."""
     content = await file.read()
     validate_audio(file.content_type, len(content))
-
     req_id = get_request_id()
 
-    # Step 1: Transcribe via Whisper
     transcription = await transcribe_audio(content, file.content_type, file.filename)
     transcript = transcription["transcript"]
 
@@ -176,10 +167,10 @@ async def summarize_audio_endpoint(
             detail=f"Transcript exceeds {MAX_WORD_LIMIT} word limit. Recording may be too long."
         )
 
-    # Step 2: Summarize — reuses existing pipeline unchanged
-    res = await generate_grounded_summary(transcript, length_preset, output_format, target_word_count)
+    res = await generate_grounded_summary(
+        transcript, length_preset, output_format, target_word_count, language  # ← passed
+    )
     metrics = calculate_metrics(transcript, res['paragraph'], res['bullets'])
-
     return {
         "request_id": req_id,
         "summary_paragraph": res['paragraph'] if output_format in ['paragraph', 'both'] else None,

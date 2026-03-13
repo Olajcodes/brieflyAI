@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+httpx
+openai
+python-dotenv
+readability-lxml
+pdfplumber
+python-docx
+python-multipart
