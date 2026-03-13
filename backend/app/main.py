@@ -21,7 +21,7 @@ app = FastAPI(title="Briefly AI API")
 # --- CORS CONFIGURATION ---
 origins = [
     "http://localhost:3000",
-    "https://overwhelming-katy-olajcodes-f997455a.koyeb.app/",
+    "https://overwhelming-katy-olajcodes-f997455a.koyeb.app",
     "https://brieflify.vercel.app"
 ]
 
