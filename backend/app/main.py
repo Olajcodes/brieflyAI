@@ -21,8 +21,8 @@ app = FastAPI(title="Briefly AI API")
 # --- CORS CONFIGURATION ---
 origins = [
     "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    # Add your production frontend URL here e.g. "https://your-app.vercel.app"
+    "https://overwhelming-katy-olajcodes-f997455a.koyeb.app/",
+    "https://brieflify.vercel.app"
 ]
 
 app.add_middleware(
