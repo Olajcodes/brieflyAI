@@ -86,6 +86,10 @@ async def fetch_via_jina(url: str) -> dict:
         if not has_meaningful_content(text):
             raise ValueError("Jina returned insufficient content.")
 
+        # Check if Jina itself got served a bot wall page
+        if is_bot_walled(text):
+            raise ValueError("Bot wall detected in Jina response.")
+
         # Jina returns clean markdown — extract a rough title from first line
         first_line = text.splitlines()[0].lstrip("#").strip() if text else url
 
@@ -124,15 +128,94 @@ async def fetch_via_direct(url: str) -> dict:
         }
 
 
+def extract_pmc_id(url: str) -> str | None:
+    """Extract PMC article ID from a pmc.ncbi.nlm.nih.gov URL."""
+    import re
+    match = re.search(r'PMC(\d+)', url, re.IGNORECASE)
+    return match.group(1) if match else None
+
+
+def extract_pubmed_id(url: str) -> str | None:
+    """Extract PubMed ID from a pubmed.ncbi.nlm.nih.gov URL."""
+    import re
+    match = re.search(r'pubmed\.ncbi\.nlm\.nih\.gov/(\d+)', url)
+    return match.group(1) if match else None
+
+
+async def fetch_via_pubmed_api(url: str) -> dict:
+    """
+    Fetches PMC/PubMed articles using NCBI's official E-utilities API.
+    This completely bypasses the bot wall since it's an official API endpoint.
+    No API key required for basic use.
+    """
+    pmc_id = extract_pmc_id(url)
+    pubmed_id = extract_pubmed_id(url)
+
+    if not pmc_id and not pubmed_id:
+        raise ValueError("Not a PMC or PubMed URL.")
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        if pmc_id:
+            # Fetch full text from PMC via OA API
+            api_url = (
+                f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+                f"?db=pmc&id={pmc_id}&rettype=xml&retmode=xml"
+            )
+            response = await client.get(api_url, follow_redirects=True)
+            response.raise_for_status()
+
+            # Strip XML tags to get plain text
+            import re
+            text = re.sub(r'<[^>]+>', ' ', response.text)
+            text = re.sub(r'\s+', ' ', text).strip()
+
+            # Get title via esummary
+            summary_url = (
+                f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi"
+                f"?db=pmc&id={pmc_id}&retmode=json"
+            )
+            summary_res = await client.get(summary_url)
+            title = url  # fallback
+            try:
+                data = summary_res.json()
+                result = data.get("result", {})
+                uid = list(result.get("uids", [None]))[0]
+                if uid:
+                    title = result.get(uid, {}).get("title", url)
+            except Exception:
+                pass
+
+        else:
+            # Fetch abstract from PubMed
+            api_url = (
+                f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+                f"?db=pubmed&id={pubmed_id}&rettype=abstract&retmode=text"
+            )
+            response = await client.get(api_url, follow_redirects=True)
+            response.raise_for_status()
+            text = response.text.strip()
+            title = f"PubMed Article {pubmed_id}"
+
+        if not has_meaningful_content(text, min_chars=100):
+            raise ValueError("PubMed API returned insufficient content.")
+
+        return {
+            "text": text,
+            "title": title,
+            "url": url,
+        }
+
+
 async def safe_fetch_url(url: str) -> dict:
     """
     Main entry point for URL fetching.
 
     Strategy:
     1. SSRF safety check
-    2. Try Jina AI Reader first (handles bot-protected & JS-rendered pages)
-    3. Fall back to direct fetch with browser headers
-    4. If both fail, return a clear user-friendly error
+    2. PMC/PubMed URLs → use official NCBI API (bypasses bot wall entirely)
+    3. All other URLs → try Jina AI Reader first
+    4. Fall back to direct fetch with browser headers
+    5. If all fail, return a clear user-friendly error
     """
     if not is_ssrf_safe(url):
         raise HTTPException(
@@ -140,7 +223,14 @@ async def safe_fetch_url(url: str) -> dict:
             detail="URL blocked: private or invalid IP range detected."
         )
 
-    # ── Attempt 1: Jina AI Reader ────────────────────────────────
+    # ── Attempt 1: NCBI official API for PMC/PubMed URLs ─────────
+    if "ncbi.nlm.nih.gov" in url:
+        try:
+            return await fetch_via_pubmed_api(url)
+        except Exception as ncbi_err:
+            print(f"[fetcher] NCBI API failed for {url}: {ncbi_err}")
+
+    # ── Attempt 2: Jina AI Reader ────────────────────────────────
     try:
         return await fetch_via_jina(url)
     except Exception as jina_err:
