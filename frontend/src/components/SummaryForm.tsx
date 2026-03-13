@@ -38,6 +38,7 @@ const LANGUAGES = [
   { value: 'yo',   label: 'Yoruba' },
   { value: 'ha',   label: 'Hausa' },
   { value: 'ig',   label: 'Igbo' },
+  { value: 'pcm', label: 'Pidgin' },
 ];
 
 export default function SummaryForm({ loading, onSummarize }: SummaryFormProps) {
